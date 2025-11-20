@@ -23,6 +23,11 @@ use tuple_set::TupleSet;
 
 let mut tuple = (42i32, "hello", None::<&str>, "world", 3.14f64);
 
+// Count occurrences by type
+assert_eq!(tuple.count::<&str>(), 2);
+assert_eq!(tuple.count::<i32>(), 1);
+assert_eq!(tuple.count::<bool>(), 0);
+
 // Replace the i32 by type
 assert!(tuple.set(100i32).is_none());
 assert_eq!(tuple.0, 100);
@@ -35,8 +40,7 @@ assert_eq!(tuple.2, Some("cruel"));
 tuple.map(|x: &mut f64| *x *= 2.0);
 
 // Get a reference by type
-let value: &f64 = tuple.get().unwrap();
-assert_eq!(*value, 6.28);
+assert_eq!(*tuple.get::<f64>().unwrap(), 6.28);
 ```
 
 ## Why this crate exists

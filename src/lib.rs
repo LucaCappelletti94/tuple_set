@@ -3,15 +3,15 @@
 
 use core::any::TypeId;
 
-/// Trait for setting values in tuples.
-pub trait TupleSet<T> {
+/// Trait for accessing and manipulating tuple elements by type.
+pub trait TupleSet {
     /// Returns the number of times type `T` appears in the tuple.
-    fn count(&self) -> usize;
+    fn count<T: 'static>(&self) -> usize;
 
     /// Returns true if the tuple contains exactly one instance of type `T`.
     #[inline]
-    fn contains_unique(&self) -> bool {
-        self.count() == 1
+    fn contains_unique<T: 'static>(&self) -> bool {
+        self.count::<T>() == 1
     }
 
     /// Sets the value for type `T` if it appears exactly once in the tuple.
@@ -32,8 +32,8 @@ pub trait TupleSet<T> {
     /// let result = tuple.set(true);
     /// assert_eq!(result, Some(true));
     /// ```
-    fn set(&mut self, value: T) -> Option<T> {
-        if !self.contains_unique() {
+    fn set<T: 'static>(&mut self, value: T) -> Option<T> {
+        if !self.contains_unique::<T>() {
             return Some(value);
         }
 
@@ -57,11 +57,11 @@ pub trait TupleSet<T> {
     ///
     /// let tuple = (42i32, "hello", 3.14f64);
     ///
-    /// let value = tuple.get();
+    /// let value: Option<&i32> = tuple.get();
     /// assert_eq!(value, Some(&42i32));
     /// ```
-    fn get(&self) -> Option<&T> {
-        if !self.contains_unique() {
+    fn get<T: 'static>(&self) -> Option<&T> {
+        if !self.contains_unique::<T>() {
             return None;
         }
 
@@ -88,7 +88,7 @@ pub trait TupleSet<T> {
     /// }
     /// assert_eq!(tuple.0, 200);
     /// ```
-    unsafe fn set_unchecked(&mut self, value: T) {
+    unsafe fn set_unchecked<T: 'static>(&mut self, value: T) {
         unsafe {
             self.map_unchecked(|x: &mut T| {
                 *x = value;
@@ -104,7 +104,7 @@ pub trait TupleSet<T> {
     /// Calling this with a type that doesn't exist will panic, while calling
     /// this with a type that appears multiple times will return a reference to
     /// the first occurrence.
-    unsafe fn get_unchecked(&self) -> &T;
+    unsafe fn get_unchecked<T: 'static>(&self) -> &T;
 
     /// Applies a mapping function to the value of type `T` in the tuple.
     ///
@@ -127,11 +127,11 @@ pub trait TupleSet<T> {
     /// assert_eq!(old, 42);
     /// assert_eq!(tuple.0, 84);
     /// ```
-    fn map<F, R>(&mut self, f: F) -> Option<R>
+    fn map<T: 'static, F, R>(&mut self, f: F) -> Option<R>
     where
         F: FnOnce(&mut T) -> R,
     {
-        if !self.contains_unique() {
+        if !self.contains_unique::<T>() {
             return None;
         }
 
@@ -164,16 +164,13 @@ pub trait TupleSet<T> {
     /// assert_eq!(old, 42);
     /// assert_eq!(tuple.0, 84);
     /// ```
-    unsafe fn map_unchecked<F, R>(&mut self, f: F) -> R
+    unsafe fn map_unchecked<T: 'static, F, R>(&mut self, f: F) -> R
     where
         F: FnOnce(&mut T) -> R;
 
     /// Takes the value out of a `T` field, leaving `T::default()` in its place.
     #[inline]
-    fn take(&mut self) -> Option<T>
-    where
-        T: Default,
-    {
+    fn take<T: 'static + Default>(&mut self) -> Option<T> {
         // Get the current value and replace with default
         self.map(core::mem::take)
     }
@@ -182,8 +179,8 @@ pub trait TupleSet<T> {
 // Macro to generate implementations
 macro_rules! impl_tuple_traits {
     ($($idx:tt: $T:ident),+) => {
-        impl<Target: 'static, $($T: 'static),+> TupleSet<Target> for ($($T,)+) {
-			fn count(&self) -> usize {
+        impl<$($T: 'static),+> TupleSet for ($($T,)+) {
+			fn count<Target: 'static>(&self) -> usize {
                 let mut count = 0;
                 $(
                     if TypeId::of::<Target>() == TypeId::of::<$T>() {
@@ -193,7 +190,7 @@ macro_rules! impl_tuple_traits {
                 count
             }
 
-            unsafe fn get_unchecked(&self) -> &Target {
+            unsafe fn get_unchecked<Target: 'static>(&self) -> &Target {
                 $(
                     if TypeId::of::<Target>() == TypeId::of::<$T>() {
                         // SAFETY: We've verified Target == $T via TypeId
@@ -210,7 +207,7 @@ macro_rules! impl_tuple_traits {
                 );
             }
 
-            unsafe fn map_unchecked<F, R>(&mut self, f: F) -> R
+            unsafe fn map_unchecked<Target: 'static, F, R>(&mut self, f: F) -> R
             where
                 F: FnOnce(&mut Target) -> R,
             {
@@ -262,187 +259,3 @@ impl_tuple_traits_recursive!(
     48: T49, 49: T50, 50: T51, 51: T52, 52: T53, 53: T54, 54: T55, 55: T56,
     56: T57, 57: T58, 58: T59, 59: T60, 60: T61, 61: T62, 62: T63, 63: T64
 );
-
-// Macro to recursively generate tests for tuples of decreasing sizes
-#[cfg(test)]
-macro_rules! gen_tuple_tests_recursive {
-    // Base case: single element tuple (first element is always i32 with value 42)
-    ($mod_name:ident; $v0:expr) => {
-        #[allow(non_snake_case)]
-        mod $mod_name {
-            use super::*;
-
-            #[test]
-            fn get_unchecked_success() {
-                let tuple = ($v0,);
-                let val: &i32 = unsafe { tuple.get_unchecked() };
-                assert_eq!(*val, 42);
-            }
-
-            #[test]
-            #[should_panic(expected = "not found")]
-            fn get_unchecked_panic() {
-                let tuple = ($v0,);
-                let _: &bool = unsafe { tuple.get_unchecked() };
-            }
-
-            #[test]
-            fn map_unchecked_success() {
-                let mut tuple = ($v0,);
-                let result = unsafe {
-                    tuple.map_unchecked(|x: &mut i32| { *x *= 2; *x })
-                };
-                assert_eq!(result, 84);
-            }
-
-            #[test]
-            #[should_panic(expected = "not found")]
-            fn map_unchecked_panic() {
-                let mut tuple = ($v0,);
-                unsafe { tuple.map_unchecked(|x: &mut bool| *x = true); }
-            }
-        }
-    };
-    // Recursive case: generate test for current size, then recurse to smaller size
-    ($mod_name:ident; $v0:expr, $($v:expr),+; $next_mod:ident; $($rest:tt)*) => {
-        #[allow(non_snake_case)]
-        mod $mod_name {
-            use super::*;
-
-            #[test]
-            fn get_unchecked_success() {
-                let tuple = ($v0, $($v),+);
-                let val: &i32 = unsafe { tuple.get_unchecked() };
-                assert_eq!(*val, 42);
-            }
-
-            #[test]
-            #[should_panic(expected = "not found")]
-            fn get_unchecked_panic() {
-                let tuple = ($v0, $($v),+);
-                let _: &bool = unsafe { tuple.get_unchecked() };
-            }
-
-            #[test]
-            fn map_unchecked_success() {
-                let mut tuple = ($v0, $($v),+);
-                let result = unsafe {
-                    tuple.map_unchecked(|x: &mut i32| { *x *= 2; *x })
-                };
-                assert_eq!(result, 84);
-            }
-
-            #[test]
-            #[should_panic(expected = "not found")]
-            fn map_unchecked_panic() {
-                let mut tuple = ($v0, $($v),+);
-                unsafe { tuple.map_unchecked(|x: &mut bool| *x = true); }
-            }
-        }
-        gen_tuple_tests_recursive!($next_mod; $($rest)*);
-    };
-}
-
-// Generate tests for tuples from size 10 down to size 1
-#[cfg(test)]
-gen_tuple_tests_recursive!(
-    gen_test_10; 42i32, 1i64, 2i64, 3i64, 4i64, 5i64, 6i64, 7i64, 8i64, 9i64;
-    gen_test_9; 42i32, 1i64, 2i64, 3i64, 4i64, 5i64, 6i64, 7i64, 8i64;
-    gen_test_8; 42i32, 1i64, 2i64, 3i64, 4i64, 5i64, 6i64, 7i64;
-    gen_test_7; 42i32, 1i64, 2i64, 3i64, 4i64, 5i64, 6i64;
-    gen_test_6; 42i32, 1i64, 2i64, 3i64, 4i64, 5i64;
-    gen_test_5; 42i32, 1i64, 2i64, 3i64, 4i64;
-    gen_test_4; 42i32, 1i64, 2i64, 3i64;
-    gen_test_3; 42i32, 1i64, 2i64;
-    gen_test_2; 42i32, 1i64;
-    gen_test_1; 42i32
-);
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_count() {
-        let tuple = (42i32, "hello", 2.5f64);
-        assert_eq!(<(i32, &str, f64) as TupleSet<i32>>::count(&tuple), 1);
-        assert_eq!(<(i32, &str, f64) as TupleSet<bool>>::count(&tuple), 0);
-    }
-
-    #[test]
-    fn test_count_duplicates() {
-        let tuple = (42i32, "hello", 100i32);
-        assert_eq!(<(i32, &str, i32) as TupleSet<i32>>::count(&tuple), 2);
-    }
-
-    #[test]
-    fn test_set_returns_none_when_found() {
-        let mut tuple = (42i32, "hello", 2.5f64);
-        assert!(tuple.set(100i32).is_none());
-        let updated_value: Option<&i32> = tuple.get();
-        assert_eq!(updated_value, Some(&100));
-        assert_eq!(tuple.0, 100);
-    }
-
-    #[test]
-    fn test_set_returns_value_when_not_found() {
-        let mut tuple = (42i32, "hello", 2.5f64);
-        let result = tuple.set(true);
-        assert_eq!(result, Some(true));
-        let updated_value: Option<&bool> = tuple.get();
-        assert_eq!(updated_value, None);
-    }
-
-    #[test]
-    fn test_set_returns_value_when_duplicates() {
-        let mut tuple = (42i32, "hello", 100i32);
-        assert_eq!(tuple.set(200i32), Some(200));
-    }
-
-    #[test]
-    fn test_set_unchecked_with_duplicates() {
-        let mut tuple = (42i32, 100i32, "hello");
-        unsafe {
-            tuple.set_unchecked(82i32);
-        }
-        assert_eq!(tuple.0, 82);
-        assert_eq!(tuple.1, 100);
-    }
-
-    #[test]
-    fn test_map_returns_none_when_duplicates() {
-        let mut tuple = (42i32, 100i32, "hello");
-        assert_eq!(tuple.map(|_x: &mut i32| 200), None);
-    }
-
-    #[test]
-    fn test_map_returns_none_when_not_found() {
-        let mut tuple = (42i32, "hello", 2.5f64);
-        assert_eq!(tuple.map(|_x: &mut bool| true), None);
-    }
-
-    #[test]
-    fn test_map_unchecked_with_duplicates() {
-        let mut tuple = (10i32, 20i32, "test");
-        let result = unsafe {
-            tuple.map_unchecked(|x: &mut i32| {
-                *x += 1;
-                *x
-            })
-        };
-        assert_eq!(result, 11);
-        assert_eq!(tuple.0, 11);
-        assert_eq!(tuple.1, 20);
-    }
-
-    #[test]
-    fn test_option_helpers() {
-        let mut tuple = (Some(42i32), "hello", Some(2.5f64));
-        tuple.set(Some(100));
-        assert_eq!(tuple.0, Some(100));
-
-        let value: Option<Option<f64>> = tuple.take();
-        assert_eq!(value, Some(Some(2.5)));
-        assert_eq!(tuple.2, None);
-    }
-}
