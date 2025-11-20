@@ -379,6 +379,8 @@ mod tests {
     fn test_set_returns_none_when_found() {
         let mut tuple = (42i32, "hello", 2.5f64);
         assert!(tuple.set(100i32).is_none());
+        let updated_value: Option<&i32> = tuple.get();
+        assert_eq!(updated_value, Some(&100));
         assert_eq!(tuple.0, 100);
     }
 
@@ -387,6 +389,8 @@ mod tests {
         let mut tuple = (42i32, "hello", 2.5f64);
         let result = tuple.set(true);
         assert_eq!(result, Some(true));
+        let updated_value: Option<&bool> = tuple.get();
+        assert_eq!(updated_value, None);
     }
 
     #[test]
