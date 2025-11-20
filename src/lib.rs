@@ -181,13 +181,7 @@ macro_rules! impl_tuple_traits {
     ($($idx:tt: $T:ident),+) => {
         impl<$($T: 'static),+> TupleSet for ($($T,)+) {
 			fn count<Target: 'static>(&self) -> usize {
-                let mut count = 0;
-                $(
-                    if TypeId::of::<Target>() == TypeId::of::<$T>() {
-                        count += 1;
-                    }
-                )+
-                count
+                0 $(+ (TypeId::of::<Target>() == TypeId::of::<$T>()) as usize)+
             }
 
             unsafe fn get_unchecked<Target: 'static>(&self) -> &Target {
