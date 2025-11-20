@@ -1,6 +1,6 @@
 [package]
 name = "tuple_set"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2024"
 authors = ["Luca Cappelletti"]
 description = "Ergonomic utilities for working with Rust tuples by unique types, not position"
