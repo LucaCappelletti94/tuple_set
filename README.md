@@ -1,10 +1,8 @@
 # Tuple Set
 
-[![Crates.io](https://img.shields.io/crates/v/tuple_set.svg)](https://crates.io/crates/tuple_set)
 [![Documentation](https://docs.rs/tuple_set/badge.svg)](https://docs.rs/tuple_set)
 [![CI](https://github.com/LucaCappelletti94/tuple_set/workflows/Rust%20CI/badge.svg)](https://github.com/LucaCappelletti94/tuple_set/actions)
 [![Security Audit](https://github.com/LucaCappelletti94/tuple_set/workflows/Security%20Audit/badge.svg)](https://github.com/LucaCappelletti94/tuple_set/actions)
-[![MSRV](https://github.com/LucaCappelletti94/tuple_set/workflows/MSRV/badge.svg)](https://github.com/LucaCappelletti94/tuple_set/actions)
 [![Codecov](https://codecov.io/gh/LucaCappelletti94/tuple_set/branch/main/graph/badge.svg)](https://codecov.io/gh/LucaCappelletti94/tuple_set)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Downloads](https://img.shields.io/crates/d/tuple_set.svg)](https://crates.io/crates/tuple_set)
@@ -12,6 +10,8 @@
 Ergonomic utilities for working with Rust tuples by unique types, not position.
 
 Supports tuples up to 64 elements, including those with duplicated types, as long as the target type appears exactly once. I might add some feature-gated support for larger tuples in the future.
+
+It comes completely `no-std` compatible, requiring only the `core` crate.
 
 ## Example
 
