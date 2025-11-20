@@ -7,7 +7,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Downloads](https://img.shields.io/crates/d/tuple_set.svg)](https://crates.io/crates/tuple_set)
 
-Ergonomic utilities for working with Rust tuples by **unique type**, not by position.
+Ergonomic utilities for working with **stable** Rust tuples by **unique type**, not by position.
 
 When implementing generic traits, you often care about a type inside a tuple rather than its position. The location may differ across tuple types and may not even be knowable. Tuple Set allows you to operate on tuple values by type when that type appears exactly once.
 
