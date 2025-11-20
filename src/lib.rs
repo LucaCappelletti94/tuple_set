@@ -15,8 +15,14 @@ pub trait TupleContains<T> {
     }
 }
 
+impl<T> TupleContains<T> for () {
+    fn count(&self) -> usize {
+        0
+    }
+}
+
 /// Trait for setting values in tuples.
-pub trait TupleSet<T> {
+pub trait TupleSet<T>: TupleContains<T> {
     /// Sets the value for type `T` if it appears exactly once in the tuple.
     ///
     /// Returns `None` on success, `Some(value)` if the type is not found or
@@ -35,19 +41,33 @@ pub trait TupleSet<T> {
     /// let result = tuple.set(true);
     /// assert_eq!(result, Some(true));
     /// ```
-    fn set(&mut self, value: T) -> Option<T>;
+    fn set(&mut self, value: T) -> Option<T> {
+        if !self.contains_unique() {
+            return Some(value);
+        }
+
+        unsafe {
+            self.set_unchecked(value);
+        }
+
+        None
+    }
 
     /// Get a reference to the value for type `T` in the tuple if it appears
     /// exactly once.
-    fn get(&self) -> Option<&T>;
+    fn get(&self) -> Option<&T> {
+        if !self.contains_unique() {
+            return None;
+        }
+
+        unsafe { Some(self.get_unchecked()) }
+    }
 
     /// Sets the value for type `T` in the tuple without checking.
     ///
     /// # Safety
     ///
     /// The caller must ensure that `T` appears exactly once in the tuple.
-    /// Calling this with a type that doesn't exist or appears multiple times
-    /// will panic.
     ///
     /// # Examples
     ///
@@ -92,7 +112,14 @@ pub trait TupleSet<T> {
     /// ```
     fn map<F, R>(&mut self, f: F) -> Option<R>
     where
-        F: FnOnce(&mut T) -> R;
+        F: FnOnce(&mut T) -> R,
+    {
+        if !self.contains_unique() {
+            return None;
+        }
+
+        unsafe { Some(self.map_unchecked(f)) }
+    }
 
     /// Applies a mapping function to the value of type `T` in the tuple without
     /// checking.
@@ -134,6 +161,32 @@ pub trait TupleSet<T> {
     }
 }
 
+impl<T> TupleSet<T> for () {
+    unsafe fn set_unchecked(&mut self, _value: T) {
+        panic!(
+            "set_unchecked: Type '{}' not found in tuple. This is undefined behavior.",
+            core::any::type_name::<T>()
+        );
+    }
+
+    unsafe fn get_unchecked(&self) -> &T {
+        panic!(
+            "get_unchecked: Type '{}' not found in tuple. This is undefined behavior.",
+            core::any::type_name::<T>()
+        );
+    }
+
+    unsafe fn map_unchecked<F, R>(&mut self, _f: F) -> R
+    where
+        F: FnOnce(&mut T) -> R,
+    {
+        panic!(
+            "map_unchecked: Type '{}' not found in tuple. This is undefined behavior.",
+            core::any::type_name::<T>()
+        );
+    }
+}
+
 // Macro to generate implementations
 macro_rules! impl_tuple_traits {
     ($($idx:tt: $T:ident),+) => {
@@ -152,25 +205,6 @@ macro_rules! impl_tuple_traits {
 
         // TupleSet implementation
         impl<Target: 'static, $($T: 'static),+> TupleSet<Target> for ($($T,)+) {
-            fn set(&mut self, value: Target) -> Option<Target> {
-                // Only set if exactly one match
-                if <Self as TupleContains<Target>>::contains_unique(self) {
-                    $(
-                        if TypeId::of::<Target>() == TypeId::of::<$T>() {
-                            // SAFETY: We've verified Target == $T via TypeId
-                            unsafe {
-                                let ptr = &mut self.$idx as *mut $T as *mut Target;
-                                core::ptr::write(ptr, value);
-                            }
-                            return None;
-                        }
-                    )+
-                    unreachable!()
-                } else {
-                    Some(value)
-                }
-            }
-
             unsafe fn set_unchecked(&mut self, value: Target) {
                 $(
                     if TypeId::of::<Target>() == TypeId::of::<$T>() {
@@ -181,30 +215,12 @@ macro_rules! impl_tuple_traits {
                         }
                         return;
                     }
-                    )+
+                )+
 
-                panic!(
+				panic!(
                     "set_unchecked: Type '{}' not found in tuple. This is undefined behavior.",
                     core::any::type_name::<Target>()
                 );
-            }
-
-            fn get(&self) -> Option<&Target> {
-                // Only get if exactly one match
-                if <Self as TupleContains<Target>>::contains_unique(self) {
-                    $(
-                        if TypeId::of::<Target>() == TypeId::of::<$T>() {
-                            // SAFETY: We've verified Target == $T via TypeId
-                            unsafe {
-                                let ptr = &self.$idx as *const $T as *const Target;
-                                return Some(&*ptr);
-                            }
-                        }
-                    )+
-                    unreachable!()
-                } else {
-                    None
-                }
             }
 
             unsafe fn get_unchecked(&self) -> &Target {
@@ -216,34 +232,12 @@ macro_rules! impl_tuple_traits {
                             return &*ptr;
                         }
                     }
-                    )+
+				)+
 
                 panic!(
                     "get_unchecked: Type '{}' not found in tuple. This is undefined behavior.",
                     core::any::type_name::<Target>()
                 );
-            }
-
-            fn map<F, R>(&mut self, f: F) -> Option<R>
-            where
-                F: FnOnce(&mut Target) -> R,
-            {
-                // Only map if exactly one match
-                if <Self as TupleContains<Target>>::contains_unique(self) {
-                    $(
-                        if TypeId::of::<Target>() == TypeId::of::<$T>() {
-                            // SAFETY: We've verified Target == $T via TypeId
-                            unsafe {
-                                let ptr = &mut self.$idx as *mut $T as *mut Target;
-                                let result = f(&mut *ptr);
-                                return Some(result);
-                            }
-                        }
-                    )+
-                    unreachable!()
-                } else {
-                    None
-                }
             }
 
             unsafe fn map_unchecked<F, R>(&mut self, f: F) -> R
@@ -258,7 +252,7 @@ macro_rules! impl_tuple_traits {
                             return f(&mut *ptr);
                         }
                     }
-                    )+
+                )+
 
                 panic!(
                     "map_unchecked: Type '{}' not found in tuple. This is undefined behavior.",
