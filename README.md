@@ -38,7 +38,7 @@ assert_eq!(*value, 6.28);
 
 ## Limitations
 
-It would be ideal if this were fully verified at compile time.
+It would be ideal if all methods in this crate were fully verified at compile time, making it impossible to call them in invalid situations and making the `unchecked` variants unnecessary.
 Unfortunately, [Rust trait specialization is not stable and does not appear likely to stabilize soon](https://github.com/rust-lang/rust/issues/31844).
 
 Until then, this runtime-checked approach is a practical alternative that still provides strong safety and good ergonomics. The following table summarizes the behavior based on the occurrences of the target type in the tuple:
