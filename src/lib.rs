@@ -176,6 +176,73 @@ pub trait TupleSet {
     }
 }
 
+impl TupleSet for () {
+    /// Always returns 0 since the tuple is empty.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use tuple_set::TupleSet;
+    ///
+    /// let tuple = ();
+    /// assert_eq!(tuple.count::<i32>(), 0);
+    /// ```
+    fn count<Target: 'static>(&self) -> usize {
+        0
+    }
+
+    /// Always panics since the tuple is empty.
+    ///
+    /// # Safety
+    ///
+    /// Calling this function is undefined behavior since the tuple is empty.
+    ///
+    /// # Examples
+    ///
+    /// ```rust,should_panic
+    /// use tuple_set::TupleSet;
+    ///
+    /// let tuple = ();
+    /// unsafe {
+    ///     let _value: &i32 = tuple.get_unchecked();
+    /// }
+    /// ```
+    unsafe fn get_unchecked<Target: 'static>(&self) -> &Target {
+        panic!(
+            "Type '{}' not found in an empty tuple. This is undefined behavior.",
+            core::any::type_name::<Target>()
+        );
+    }
+
+    /// Always panics since the tuple is empty.
+    ///
+    /// # Safety
+    ///
+    /// Calling this function is undefined behavior since the tuple is empty.
+    ///
+    /// # Examples
+    ///
+    /// ```rust,should_panic
+    /// use tuple_set::TupleSet;
+    ///
+    /// let mut tuple = ();
+    /// unsafe {
+    ///     tuple.map_unchecked(|x: &mut i32| {
+    ///         *x = 42;
+    ///     });
+    /// }
+    /// ```
+    unsafe fn map_unchecked<Target: 'static, F, R>(&mut self, _f: F) -> R
+    where
+        F: FnOnce(&mut Target) -> R,
+    {
+        panic!(
+            "Type '{}' not found in an empty tuple. This is undefined behavior.",
+            core::any::type_name::<Target>()
+        );
+    }
+}
+
 // Macro to generate implementations
 macro_rules! impl_tuple_traits {
     ($($idx:tt: $T:ident),+) => {
